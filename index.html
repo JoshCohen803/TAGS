@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>TAGS – Travel Tag Translator</title>
+<title>TAGS – Foreign Tag Translator v8</title>
 <style>
   :root {
     --bg-color: #f5f5f5;
@@ -123,7 +123,7 @@
   <div class="instructions">
     <strong>How to Use:</strong><br>
     1. Upload/take a picture or type/paste a tag<br>
-    2. Select <strong>Visiting Country</strong> (where you found the item)<br>
+    2. Select <strong>Visiting Country</strong> (or auto-detect)<br>
     3. Enter the price in that local currency (optional)<br>
     4. Click <strong>Translate Tag</strong>
   </div>
@@ -163,25 +163,32 @@
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <script>
-  // === Brand size charts (simplified for demo) ===
+  // === Brand size charts (expanded a bit for XS → XL) ===
   const brandSizeChart = {
-    Zara: { EUR: { "34":"XS","36":"S","38":"M","40":"L","42":"XL" },
-            GBP: { "6":"XS","8":"S","10":"M","12":"L" },
-            USD: { "2":"XS","4":"S","6":"M","8":"L" } },
-    Nike: { EUR: { "36":"S","38":"M","40":"L" },
-            GBP: { "8":"S","10":"M","12":"L" },
-            USD: { "S":"S","M":"M","L":"L","XL":"XL" } },
-    "H&M": { EUR: { "34":"XS","36":"S","38":"M","40":"L" },
-             GBP: { "6":"XS","8":"S","10":"M","12":"L" },
-             USD: { "2":"XS","4":"S","6":"M","8":"L" } },
-    Uniqlo: { JPY: { "S":"S","M":"M","L":"L","XL":"XL" },
-              EUR: { "S":"S","M":"M","L":"L","XL":"XL" } }
+    Nike: {
+      USD: { "XS":"XS","S":"S","M":"M","L":"L","XL":"XL","XXL":"XXL" },
+      EUR: { "34":"XS","36":"S","38":"M","40":"L","42":"XL" },
+      GBP: { "6":"XS","8":"S","10":"M","12":"L","14":"XL" }
+    },
+    Zara: {
+      USD: { "XS":"XS","S":"S","M":"M","L":"L","XL":"XL" },
+      EUR: { "34":"XS","36":"S","38":"M","40":"L","42":"XL" },
+      GBP: { "6":"XS","8":"S","10":"M","12":"L","14":"XL" }
+    },
+    "H&M": {
+      USD: { "XS":"XS","S":"S","M":"M","L":"L","XL":"XL" },
+      EUR: { "34":"XS","36":"S","38":"M","40":"L","42":"XL" },
+      GBP: { "6":"XS","8":"S","10":"M","12":"L","14":"XL" }
+    },
+    Uniqlo: {
+      JPY: { "XS":"XS","S":"S","M":"M","L":"L","XL":"XL" },
+      EUR: { "XS":"XS","S":"S","M":"M","L":"L","XL":"XL" }
+    }
   };
 
-  // Exchange rates (demo static values)
   const exchangeRates = { USD:1, EUR:1.05, GBP:0.85, JPY:150, CNY:7.2, MXN:17 };
 
-  // Load saved settings
+  // State
   let history = JSON.parse(localStorage.getItem("tagHistory") || "[]");
   let homeCountry = localStorage.getItem("homeCountry") || "USD";
   let theme = localStorage.getItem("theme") || "light";
@@ -189,26 +196,37 @@
   document.getElementById("homeCountry").value = homeCountry;
   document.getElementById("themeSelect").value = theme;
 
-  // === Smarter Parser ===
-  function parseTag(input) {
+  // === Improved Parser ===
+  function parseTag(input, visitCountry) {
     if (!input) return null;
     const text = input.toUpperCase();
 
-    // 1. Detect brand
+    // Brand
     const brands = Object.keys(brandSizeChart);
     const brand = brands.find(b => text.includes(b.toUpperCase()));
     if (!brand) return null;
 
-    // 2. Detect size
+    // Candidate sizes
     const sizePatterns = /(XXL|XL|XS|S|M|L|\b\d{1,3}\b)/g;
-    const matches = text.match(sizePatterns);
-    if (!matches) return null;
-    const tagSize = matches[0];
+    const matches = text.match(sizePatterns) || [];
+
+    // Pick the first size that exists in this brand+country chart
+    let tagSize = null;
+    if (visitCountry && brandSizeChart[brand][visitCountry]) {
+      for (let m of matches) {
+        if (brandSizeChart[brand][visitCountry][m]) {
+          tagSize = m;
+          break;
+        }
+      }
+    }
+    // fallback: just first match
+    if (!tagSize && matches.length) tagSize = matches[0];
 
     return { brand, tagSize };
   }
 
-  // === Render History ===
+  // Render history
   function renderHistory() {
     const histDiv = document.getElementById('history');
     histDiv.innerHTML = '';
@@ -224,19 +242,18 @@
     });
   }
 
-  // === Apply Theme ===
   function applyTheme(mode) {
     document.body.classList.toggle("dark", mode === "dark");
   }
 
-  // === Event Listeners ===
+  // Events
   document.getElementById('tagScan').addEventListener('input', () => {
     document.getElementById('translateBtn').disabled = !document.getElementById('tagScan').value.trim();
   });
 
   document.getElementById('translateBtn').addEventListener('click', () => {
-    const parsed = parseTag(document.getElementById('tagScan').value);
     const visitCountry = document.getElementById('visitCountry').value;
+    const parsed = parseTag(document.getElementById('tagScan').value, visitCountry);
     if (!parsed || !visitCountry) { alert("Enter a valid tag and select visiting country."); return; }
 
     const { brand, tagSize } = parsed;
@@ -291,7 +308,7 @@
     applyTheme(theme);
   });
 
-  // === OCR Handling ===
+  // OCR
   document.getElementById("tagImage").addEventListener("change", async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -300,9 +317,15 @@
     const worker = await createWorker('eng');
     const { data: { text } } = await worker.recognize(file);
     await worker.terminate();
-    document.getElementById("ocrStatus").textContent = "OCR Result: " + text.trim();
-    document.getElementById("tagScan").value = text.trim().replace(/\s+/g, " ");
+    const cleaned = text.trim().replace(/\s+/g, " ");
+    document.getElementById("ocrStatus").textContent = "OCR Result: " + cleaned;
+    document.getElementById("tagScan").value = cleaned;
     document.getElementById("translateBtn").disabled = false;
+
+    // Auto-detect visiting country if possible
+    const countries = Object.keys(exchangeRates);
+    const found = countries.find(c => cleaned.includes(c));
+    if (found) document.getElementById("visitCountry").value = found;
   });
 
   // Init
@@ -311,7 +334,7 @@
 
 <!-- Credit -->
 <div style="text-align:center; margin-top:20px; font-size:0.85em; color:#555;">
-  Chief Development Officer: Josh Cohen | Founder: Bodey Rietz v7
+  Chief Development Officer: Josh Cohen | Founder: Bodey Rietz
 </div>
 
 </body>
