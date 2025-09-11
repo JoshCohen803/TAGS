@@ -4,14 +4,89 @@
 <meta charset="UTF-8">
 <title>TAGS – Travel Tag Translator</title>
 <style>
-  body { font-family: Arial, sans-serif; background: #f5f5f5; margin:0; padding:20px; }
-  .container { max-width:550px; margin:auto; background:#fff; padding:20px; border-radius:10px; }
+  :root {
+    --bg-color: #f5f5f5;
+    --text-color: #222;
+    --card-bg: #fff;
+    --accent: #0077ff;
+  }
+  body.dark {
+    --bg-color: #121212;
+    --text-color: #f0f0f0;
+    --card-bg: #1e1e1e;
+    --accent: #4da6ff;
+  }
+  body {
+    font-family: Arial, sans-serif;
+    background: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 20px;
+    transition: background 0.3s, color 0.3s;
+  }
+  .container {
+    max-width: 650px;
+    margin: auto;
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  }
   h1,h3 { text-align:center; }
-  select,input,button { width:100%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #ccc; }
-  .result,.history-item { background:#eee; padding:10px; margin:5px 0; border-radius:8px; }
-  .result { font-weight:bold; }
-  .instructions { background:#fafafa; padding:10px; border-radius:8px; margin-bottom:10px; font-size:0.95em; }
-  button:disabled { background:#ccc; cursor:not-allowed; }
+  input,button,select {
+    width: 100%; padding: 12px; margin: 8px 0;
+    border-radius: 8px; border: 1px solid #ccc;
+    font-size: 1em;
+    background: var(--card-bg);
+    color: var(--text-color);
+  }
+  button {
+    cursor: pointer;
+    background: var(--accent);
+    color: #fff;
+    font-weight: bold;
+    border: none;
+    transition: opacity 0.3s;
+  }
+  button:hover:enabled { opacity: 0.9; }
+  button:disabled { background:#777; cursor:not-allowed; }
+  .result,.history-item {
+    background: #eee;
+    padding: 10px; margin: 5px 0;
+    border-radius: 8px;
+  }
+  body.dark .result, body.dark .history-item {
+    background: #2a2a2a;
+  }
+  .instructions {
+    background: #fafafa;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-size: 0.95em;
+  }
+  body.dark .instructions {
+    background: #1a1a1a;
+  }
+  .history-container {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 5px;
+    background: var(--card-bg);
+  }
+  .history-actions { text-align:right; margin-bottom:5px; }
+  .clear-btn { background:#e74c3c; color:white; border:none; }
+  .settings-panel {
+    display: none;
+    padding: 12px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: var(--card-bg);
+  }
+  .settings-panel.active { display: block; }
 </style>
 </head>
 <body>
@@ -19,37 +94,36 @@
 <div class="container">
   <h1>🏷️ TAGS – Foreign Tag Translator</h1>
 
+  <!-- Settings Menu -->
+  <button id="settingsToggle">⚙️ Settings</button>
+  <div id="settingsPanel" class="settings-panel">
+    <label for="homeCountry">Home Country:</label>
+    <select id="homeCountry">
+      <option value="USD">United States (USD)</option>
+      <option value="EUR">Europe (EUR)</option>
+      <option value="GBP">United Kingdom (GBP)</option>
+      <option value="JPY">Japan (JPY)</option>
+      <option value="CNY">China (CNY)</option>
+      <option value="MXN">Mexico (MXN)</option>
+    </select>
+
+    <label for="themeSelect">Theme:</label>
+    <select id="themeSelect">
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
+    </select>
+  </div>
+
   <!-- Instructions -->
   <div class="instructions">
     <strong>How to Use:</strong><br>
-    1. Select the brand of the item<br>
-    2. Select the country where the tag is from<br>
-    3. Select the size shown on the tag<br>
-    4. Optionally, enter the price in local currency<br>
-    5. Click <strong>Translate Tag</strong> to see the US size and USD price
+    1. Type or paste the tag (e.g. <code>Zara EUR 38</code>)<br>
+    2. Optionally, enter the price in local currency<br>
+    3. Click <strong>Translate Tag</strong>
   </div>
 
-  <!-- Options -->
-  <select id="brand">
-    <option value="" disabled selected>Select Brand</option>
-    <option value="Zara">Zara</option>
-    <option value="Nike">Nike</option>
-    <option value="H&M">H&M</option>
-    <option value="Uniqlo">Uniqlo</option>
-    <option value="Adidas">Adidas</option>
-  </select>
-
-  <select id="visitCountry">
-    <option value="" disabled selected>Select Tag Country</option>
-    <option value="EUR">Europe</option>
-    <option value="GBP">United Kingdom</option>
-    <option value="USD">United States</option>
-  </select>
-
-  <select id="tagSize">
-    <option value="" disabled selected>Select Tag Size</option>
-  </select>
-
+  <!-- Tag Scan Input -->
+  <input type="text" id="tagScan" placeholder="Example: Zara EUR 38">
   <input type="number" id="tagPrice" placeholder="Price in local currency (optional)">
   <button id="translateBtn" disabled>Translate Tag</button>
 
@@ -58,68 +132,111 @@
 
   <!-- History -->
   <h3>History</h3>
-  <div id="history"></div>
+  <div class="history-actions">
+    <button class="clear-btn" id="clearHistoryBtn">Clear History</button>
+  </div>
+  <div id="history" class="history-container"></div>
 </div>
 
 <script>
-  // Brand size charts (Foreign Size -> US)
+  // Size charts (simplified for demo; expand as needed)
   const brandSizeChart = {
-    Zara: { EUR: { "32":"XS","34":"XS","36":"S","38":"M","40":"L","42":"XL","44":"XXL","46":"3XL","48":"4XL" },
-            GBP: { "32":"XS","34":"S","36":"S","38":"M","40":"L","42":"XL","44":"XXL","46":"3XL" },
-            USD: { "XS":"XS","S":"S","M":"M","L":"L","XL":"XL","XXL":"XXL"} },
-    Nike: { EUR: {"34":"XS","36":"S","38":"M","40":"L","42":"XL","44":"XXL"},
-            GBP: {"34":"XS","36":"S","38":"M","40":"L","42":"XL","44":"XXL"},
-            USD: {"XS":"XS","S":"S","M":"M","L":"L","XL":"XL","XXL":"XXL"} },
-    "H&M": { EUR: {"32":"XS","34":"S","36":"S","38":"M","40":"L","42":"XL","44":"XXL"},
-             GBP: {"32":"XS","34":"S","36":"M","38":"M","40":"L","42":"XL","44":"XXL"},
-             USD: {"XS":"XS","S":"S","M":"M","L":"L","XL":"XL","XXL":"XXL"} },
-    Uniqlo: { EUR: {"XS":"XS","S":"S","M":"M","L":"L","XL":"XL","XXL":"XXL"},
-              GBP: {"XS":"XS","S":"S","M":"M","L":"L","XL":"XL","XXL":"XXL"},
-              USD: {"XS":"XS","S":"S","M":"M","L":"L","XL":"XL","XXL":"XXL"} },
-    Adidas: { EUR: {"34":"XS","36":"S","38":"M","40":"L","42":"XL","44":"XXL"},
-              GBP: {"34":"XS","36":"S","38":"M","40":"L","42":"XL","44":"XXL"},
-              USD: {"XS":"XS","S":"S","M":"M","L":"L","XL":"XL","XXL":"XXL"} }
+    Zara: {
+      EUR: { "34":"XS","36":"S","38":"M","40":"L","42":"XL","44":"XXL" },
+      GBP: { "6":"XS","8":"S","10":"M","12":"L","14":"XL" },
+      USD: { "2":"XS","4":"S","6":"M","8":"L","10":"XL" },
+      JPY: { "7":"XS","9":"S","11":"M","13":"L" }
+    },
+    Nike: {
+      EUR: { "36":"S","38":"M","40":"L","42":"XL" },
+      GBP: { "8":"S","10":"M","12":"L","14":"XL" },
+      USD: { "S":"S","M":"M","L":"L","XL":"XL" },
+      JPY: { "S":"S","M":"M","L":"L","XL":"XL" }
+    },
+    "H&M": {
+      EUR: { "34":"XS","36":"S","38":"M","40":"L" },
+      GBP: { "6":"XS","8":"S","10":"M","12":"L" },
+      USD: { "2":"XS","4":"S","6":"M","8":"L" }
+    },
+    Uniqlo: {
+      JPY: { "S":"S","M":"M","L":"L","XL":"XL" },
+      EUR: { "S":"S","M":"M","L":"L","XL":"XL" }
+    },
+    Adidas: {
+      EUR: { "36":"S","38":"M","40":"L" },
+      GBP: { "8":"S","10":"M","12":"L" }
+    },
+    Levi: {
+      USD: { "28":"XS","30":"S","32":"M","34":"L","36":"XL" },
+      EUR: { "36":"S","38":"M","40":"L" }
+    },
+    Gucci: {
+      EUR: { "34":"XS","36":"S","38":"M","40":"L" },
+      ITA: { "38":"XS","40":"S","42":"M","44":"L" }
+    }
   };
 
-  const exchangeRates = { USD:1, EUR:1.05, GBP:0.85 };
-  const history = [];
+  // Exchange rates (fake fixed)
+  const exchangeRates = { USD:1, EUR:1.05, GBP:0.85, JPY:150, CNY:7.2, MXN:17 };
 
-  function updateSizes() {
-    const brand = document.getElementById('brand').value;
-    const country = document.getElementById('visitCountry').value;
-    const sizeSelect = document.getElementById('tagSize');
-    sizeSelect.innerHTML = '<option value="" disabled selected>Select Tag Size</option>';
-    if(brand && country && brandSizeChart[brand][country]) {
-      Object.keys(brandSizeChart[brand][country]).forEach(sz => {
-        const option = document.createElement('option');
-        option.value = sz;
-        option.textContent = sz;
-        sizeSelect.appendChild(option);
-      });
+  // Load settings & history
+  let history = JSON.parse(localStorage.getItem("tagHistory") || "[]");
+  let homeCountry = localStorage.getItem("homeCountry") || "USD";
+  let theme = localStorage.getItem("theme") || "light";
+  applyTheme(theme);
+  document.getElementById("homeCountry").value = homeCountry;
+  document.getElementById("themeSelect").value = theme;
+
+  function parseTag(input) {
+    if (!input) return null;
+    const parts = input.trim().split(/\s+/);
+    if (parts.length < 3) return null;
+    const brandInput = parts[0].toLowerCase();
+    const brand = Object.keys(brandSizeChart).find(b => b.toLowerCase() === brandInput);
+    if (!brand) return null;
+    const country = parts[1].toUpperCase();
+    const tagSize = parts.slice(2).join("").toUpperCase();
+    return { brand, country, tagSize };
+  }
+
+  function renderHistory() {
+    const histDiv = document.getElementById('history');
+    histDiv.innerHTML = '';
+    if (history.length === 0) {
+      histDiv.innerHTML = "<em>No history yet.</em>";
+      return;
     }
-    checkReady();
+    history.forEach(h => {
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      div.innerHTML = `${h.brand} ${h.country} ${h.tagSize} → US ${h.usSize} • ${h.convertedPrice === "N/A" ? "N/A" : "$"+h.convertedPrice}`;
+      histDiv.appendChild(div);
+    });
   }
 
-  function checkReady() {
-    const brand = document.getElementById('brand').value;
-    const country = document.getElementById('visitCountry').value;
-    const size = document.getElementById('tagSize').value;
-    document.getElementById('translateBtn').disabled = !(brand && country && size);
+  function applyTheme(mode) {
+    document.body.classList.toggle("dark", mode === "dark");
   }
 
-  document.getElementById('brand').addEventListener('change', updateSizes);
-  document.getElementById('visitCountry').addEventListener('change', updateSizes);
-  document.getElementById('tagSize').addEventListener('change', checkReady);
+  // Event Listeners
+  document.getElementById('tagScan').addEventListener('input', () => {
+    document.getElementById('translateBtn').disabled = !document.getElementById('tagScan').value.trim();
+  });
 
   document.getElementById('translateBtn').addEventListener('click', () => {
-    const brand = document.getElementById('brand').value;
-    const country = document.getElementById('visitCountry').value;
-    const tagSize = document.getElementById('tagSize').value;
+    const parsed = parseTag(document.getElementById('tagScan').value);
+    if (!parsed) { alert("Couldn't read tag. Example: Zara EUR 38"); return; }
+    const { brand, country, tagSize } = parsed;
     const price = parseFloat(document.getElementById('tagPrice').value) || 0;
-
+    if (!brandSizeChart[brand] || !brandSizeChart[brand][country]) {
+      alert("Unknown brand or country."); return;
+    }
     const usSize = brandSizeChart[brand][country][tagSize] || "?";
-    const convertedPrice = price ? (price * (exchangeRates['USD']/exchangeRates[country])).toFixed(2) : "N/A";
-
+    let convertedPrice = "N/A";
+    if (price && exchangeRates[country]) {
+      const usdRate = exchangeRates[homeCountry] || 1;
+      convertedPrice = (price * (usdRate / exchangeRates[country])).toFixed(2);
+    }
     const resultDiv = document.getElementById('result');
     resultDiv.style.display = 'block';
     resultDiv.innerHTML = `
@@ -127,24 +244,38 @@
       Tag Country: ${country} <br>
       Tag Size: ${tagSize} <br>
       US Size: ${usSize} <br>
-      Price in USD: ${convertedPrice === "N/A" ? "N/A" : "$"+convertedPrice}
+      Price in ${homeCountry}: ${convertedPrice === "N/A" ? "N/A" : "$"+convertedPrice}
     `;
-
-    // Save to history
     history.unshift({ brand, country, tagSize, usSize, convertedPrice });
+    localStorage.setItem("tagHistory", JSON.stringify(history));
     renderHistory();
   });
 
-  function renderHistory() {
-    const histDiv = document.getElementById('history');
-    histDiv.innerHTML = '';
-    history.forEach(h => {
-      const div = document.createElement('div');
-      div.className = 'history-item';
-      div.innerHTML = `${h.brand} ${h.country} ${h.tagSize} → US ${h.usSize} • ${h.convertedPrice === 0 ? "N/A" : "$"+h.convertedPrice}`;
-      histDiv.appendChild(div);
-    });
-  }
+  document.getElementById("clearHistoryBtn").addEventListener("click", () => {
+    if (confirm("Clear all history?")) {
+      history = [];
+      localStorage.removeItem("tagHistory");
+      renderHistory();
+    }
+  });
+
+  document.getElementById("settingsToggle").addEventListener("click", () => {
+    document.getElementById("settingsPanel").classList.toggle("active");
+  });
+
+  document.getElementById("homeCountry").addEventListener("change", (e) => {
+    homeCountry = e.target.value;
+    localStorage.setItem("homeCountry", homeCountry);
+  });
+
+  document.getElementById("themeSelect").addEventListener("change", (e) => {
+    theme = e.target.value;
+    localStorage.setItem("theme", theme);
+    applyTheme(theme);
+  });
+
+  // Init
+  renderHistory();
 </script>
 
 <!-- Credit -->
